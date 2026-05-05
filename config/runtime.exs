@@ -120,21 +120,25 @@ temporal_activity_task_queue =
 temporal_worker_identity_prefix =
   System.get_env("AUTOMATA_TEMPORAL_WORKER_IDENTITY_PREFIX", "automata")
 
-config :temporal_sdk,
-  node: %{scope_config: [automata: 10]},
-  clusters: [
-    automata: [
-      client: %{
-        adapter:
-          {:temporal_sdk_grpc_adapter_gun_pool,
-           [endpoints: [{temporal_host, temporal_port}], pool_size: 5]},
-        grpc_opts: [timeout: 2_000],
-        grpc_opts_longpoll: [timeout: 70_000]
-      },
-      workflows: [[task_queue: temporal_workflow_task_queue]],
-      activities: [[task_queue: temporal_activity_task_queue]]
+if config_env() != :test do
+  config :temporal_sdk,
+    node: %{scope_config: [automata: 10]},
+    clusters: [
+      automata: [
+        client: %{
+          adapter:
+            {:temporal_sdk_grpc_adapter_gun_pool,
+             [endpoints: [{temporal_host, temporal_port}], pool_size: 5]},
+          grpc_opts: [timeout: 2_000],
+          grpc_opts_longpoll: [timeout: 70_000]
+        },
+        workflows: [[task_queue: temporal_workflow_task_queue]],
+        activities: [[task_queue: temporal_activity_task_queue]]
+      ]
     ]
-  ]
+else
+  config :temporal_sdk, node: %{scope_config: []}, clusters: []
+end
 
 config :sentientwave_automata,
   temporal_cluster: :automata,

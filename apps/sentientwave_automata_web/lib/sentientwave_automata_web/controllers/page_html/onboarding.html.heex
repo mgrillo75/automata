@@ -165,29 +165,3 @@
     <pre id="onboarding-validator-output" class="sw-code-output hidden"></pre>
   </section>
 </.admin_shell>
-
-<script>
-  (() => {
-    const form = document.getElementById("onboarding-validator");
-    const output = document.getElementById("onboarding-validator-output");
-    if (!form || !output) return;
-
-    form.addEventListener("submit", async (event) => {
-      event.preventDefault();
-      const data = Object.fromEntries(new FormData(form).entries());
-      output.classList.remove("hidden");
-      output.textContent = "Validating...";
-
-      try {
-        const response = await fetch("/api/v1/onboarding/validate", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify(data),
-        });
-        output.textContent = JSON.stringify(await response.json(), null, 2);
-      } catch (error) {
-        output.textContent = "Request failed: " + String(error);
-      }
-    });
-  })();
-</script>

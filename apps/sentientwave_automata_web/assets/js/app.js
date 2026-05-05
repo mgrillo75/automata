@@ -32,6 +32,44 @@ const liveSocket = new LiveSocket("/live", Socket, {
   hooks: {...colocatedHooks},
 })
 
+const initTheme = () => {
+  const prefersDark = () =>
+    window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
+
+  const applyTheme = mode => {
+    const resolved = mode === "auto" ? (prefersDark() ? "dark" : "light") : mode
+    document.documentElement.setAttribute("data-theme", resolved)
+    document.documentElement.setAttribute("data-sw-theme-mode", mode)
+  }
+
+  const setTheme = mode => {
+    if (mode === "auto") {
+      localStorage.removeItem("phx:theme")
+    } else {
+      localStorage.setItem("phx:theme", mode)
+    }
+
+    applyTheme(mode)
+  }
+
+  applyTheme(localStorage.getItem("phx:theme") || "auto")
+
+  window.addEventListener("storage", event => {
+    if (event.key === "phx:theme") applyTheme(event.newValue || "auto")
+  })
+
+  const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null
+  if (media) {
+    media.addEventListener("change", () => {
+      if (!localStorage.getItem("phx:theme")) applyTheme("auto")
+    })
+  }
+
+  window.addEventListener("phx:set-theme", event => setTheme(event.target.dataset.phxTheme))
+}
+
+initTheme()
+
 // Show progress bar on live navigation and form submits
 topbar.config({barColors: {0: "#29d"}, shadowColor: "rgba(0, 0, 0, .3)"})
 window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
@@ -135,6 +173,37 @@ const initProviderForms = () => {
 initProviderForms()
 window.addEventListener("DOMContentLoaded", initProviderForms)
 window.addEventListener("phx:page-loading-stop", initProviderForms)
+
+const initOnboardingValidator = () => {
+  const form = document.getElementById("onboarding-validator")
+  const output = document.getElementById("onboarding-validator-output")
+
+  if (!form || !output || form.dataset.validatorInitialized === "true") return
+
+  form.addEventListener("submit", async event => {
+    event.preventDefault()
+    const data = Object.fromEntries(new FormData(form).entries())
+    output.classList.remove("hidden")
+    output.textContent = "Validating..."
+
+    try {
+      const response = await fetch("/api/v1/onboarding/validate", {
+        method: "POST",
+        headers: {"content-type": "application/json"},
+        body: JSON.stringify(data),
+      })
+      output.textContent = JSON.stringify(await response.json(), null, 2)
+    } catch (error) {
+      output.textContent = "Request failed: " + String(error)
+    }
+  })
+
+  form.dataset.validatorInitialized = "true"
+}
+
+initOnboardingValidator()
+window.addEventListener("DOMContentLoaded", initOnboardingValidator)
+window.addEventListener("phx:page-loading-stop", initOnboardingValidator)
 
 // The lines below enable quality of life phoenix_live_reload
 // development features:

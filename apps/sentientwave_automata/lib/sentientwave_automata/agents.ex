@@ -763,10 +763,12 @@ defmodule SentientwaveAutomata.Agents do
   end
 
   defp normalize_skill_attrs(attrs) do
-    attrs
-    |> maybe_put_key(:slug, Map.get(attrs, :name, Map.get(attrs, "name")))
-    |> maybe_put_key(:enabled, true)
-    |> maybe_put_key(:metadata, %{})
+    %{}
+    |> maybe_put_attr(:name, attrs)
+    |> maybe_put_attr(:slug, attrs)
+    |> maybe_put_attr(:markdown_body, attrs)
+    |> maybe_put_attr(:enabled, attrs)
+    |> maybe_put_attr(:metadata, attrs)
   end
 
   defp normalize_run_update_attrs(attrs) when is_map(attrs) do
@@ -791,18 +793,21 @@ defmodule SentientwaveAutomata.Agents do
   defp normalize_run_update_key(key) when key in [:metadata, "metadata"], do: :metadata
   defp normalize_run_update_key(key), do: key
 
-  defp maybe_put_key(map, _key, nil), do: map
-
-  defp maybe_put_key(map, key, value) do
-    cond do
-      Map.has_key?(map, key) -> map
-      Map.has_key?(map, Atom.to_string(key)) -> map
-      true -> Map.put(map, key, value)
-    end
-  end
-
   defp normalize_map(value) when is_map(value), do: value
   defp normalize_map(_), do: %{}
+
+  defp maybe_put_attr(acc, key, attrs) do
+    cond do
+      Map.has_key?(attrs, key) ->
+        Map.put(acc, key, Map.get(attrs, key))
+
+      Map.has_key?(attrs, Atom.to_string(key)) ->
+        Map.put(acc, key, Map.get(attrs, Atom.to_string(key)))
+
+      true ->
+        acc
+    end
+  end
 
   defp normalize_scheduled_task_attrs(attrs) do
     attrs

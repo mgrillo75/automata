@@ -545,22 +545,32 @@ defmodule SentientwaveAutomata.Matrix.SynapseAdmin do
   end
 
   defp request(method, url, headers, nil) do
-    req = {String.to_charlist(url), normalize_headers(headers)}
-    opts = [timeout: 1_500, connect_timeout: 1_500]
-
-    case :httpc.request(method, req, opts, body_format: :binary) do
-      {:ok, {{_, status, _}, _resp_headers, resp_body}} -> {:ok, status, resp_body}
+    case Req.request(
+           method: method,
+           url: url,
+           headers: headers,
+           receive_timeout: 1_500,
+           connect_options: [timeout: 1_500],
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %{status: status, body: resp_body}} -> {:ok, status, resp_body}
       {:error, reason} -> {:error, reason}
     end
   end
 
   defp request(method, url, headers, body) when is_binary(body) do
-    http_headers = [{"content-type", "application/json"} | headers] |> normalize_headers()
-    req = {String.to_charlist(url), http_headers, ~c"application/json", body}
-    opts = [timeout: 1_500, connect_timeout: 1_500]
-
-    case :httpc.request(method, req, opts, body_format: :binary) do
-      {:ok, {{_, status, _}, _resp_headers, resp_body}} -> {:ok, status, resp_body}
+    case Req.request(
+           method: method,
+           url: url,
+           headers: [{"content-type", "application/json"} | headers],
+           body: body,
+           receive_timeout: 1_500,
+           connect_options: [timeout: 1_500],
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %{status: status, body: resp_body}} -> {:ok, status, resp_body}
       {:error, reason} -> {:error, reason}
     end
   end
@@ -596,10 +606,6 @@ defmodule SentientwaveAutomata.Matrix.SynapseAdmin do
       nil -> not SentientwaveAutomata.RuntimeConfig.production?()
       value -> value in ["1", "true", "TRUE", "yes", "YES"]
     end
-  end
-
-  defp normalize_headers(headers) do
-    Enum.map(headers, fn {k, v} -> {to_charlist(k), to_charlist(v)} end)
   end
 
   defp read_token_file(path) when is_binary(path) do

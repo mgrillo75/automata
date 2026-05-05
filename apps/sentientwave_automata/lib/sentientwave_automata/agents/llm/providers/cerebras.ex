@@ -15,6 +15,7 @@ defmodule SentientwaveAutomata.Agents.LLM.Providers.Cerebras do
 
     base_url =
       Keyword.get(opts, :base_url, System.get_env("AUTOMATA_LLM_API_BASE", @default_base_url))
+      |> normalize_base_url("/v1")
 
     api_key =
       Keyword.get(
@@ -73,4 +74,16 @@ defmodule SentientwaveAutomata.Agents.LLM.Providers.Cerebras do
   end
 
   defp maybe_add_version_patch_header(headers, _), do: headers
+
+  defp normalize_base_url(base_url, default_path) when is_binary(base_url) do
+    uri = URI.parse(base_url)
+
+    if uri.scheme && uri.host && uri.path in [nil, ""] do
+      URI.to_string(%{uri | path: default_path})
+    else
+      base_url
+    end
+  end
+
+  defp normalize_base_url(base_url, _default_path), do: base_url
 end

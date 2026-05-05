@@ -2097,17 +2097,15 @@ defmodule SentientwaveAutomataWeb.PageController do
 
   defp normalize_governance_status_filter(""), do: nil
 
-  defp normalize_governance_status_filter(value) when value in ["active", "repealed"] do
-    String.to_atom(value)
-  end
+  defp normalize_governance_status_filter("active"), do: :active
+  defp normalize_governance_status_filter("repealed"), do: :repealed
 
   defp normalize_governance_status_filter(_), do: nil
 
   defp normalize_governance_kind_filter(""), do: nil
 
-  defp normalize_governance_kind_filter(value) when value in ["general", "voting_policy"] do
-    String.to_atom(value)
-  end
+  defp normalize_governance_kind_filter("general"), do: :general
+  defp normalize_governance_kind_filter("voting_policy"), do: :voting_policy
 
   defp normalize_governance_kind_filter(_), do: nil
 

@@ -118,7 +118,7 @@ defmodule SentientwaveAutomata.Agents.ScheduledTaskSchedule do
   end
 
   defp local_datetime(timezone, date, hour, minute) do
-    with {:ok, time} <- Time.new(hour, minute, 0),
+    with {:ok, time} <- Time.new(hour, minute, 0, {0, 6}),
          {:ok, naive} <- NaiveDateTime.new(date, time) do
       resolve_local_datetime(naive, timezone)
     end

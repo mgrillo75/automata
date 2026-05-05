@@ -22,7 +22,7 @@ defmodule SentientwaveAutomata.Governance do
   alias SentientwaveAutomata.Repo
 
   @default_voting_rule_config %{
-    "approval_mode" => "majority_cast",
+    "approval_mode" => "majority_of_cast",
     "approval_threshold_percent" => 50,
     "quorum_percent" => 50,
     "voting_window_hours" => 72
@@ -54,9 +54,15 @@ defmodule SentientwaveAutomata.Governance do
   def get_law(%Law{} = law), do: preload_law(law)
 
   def get_law(id) when is_binary(id) do
-    case Repo.get(Law, id) do
-      nil -> nil
-      law -> preload_law(law)
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} ->
+        case Repo.get(Law, uuid) do
+          nil -> nil
+          law -> preload_law(law)
+        end
+
+      :error ->
+        nil
     end
   end
 
@@ -128,9 +134,15 @@ defmodule SentientwaveAutomata.Governance do
   def get_role(%Role{} = role), do: preload_role(role)
 
   def get_role(id) when is_binary(id) do
-    case Repo.get(Role, id) do
-      nil -> nil
-      role -> preload_role(role)
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} ->
+        case Repo.get(Role, uuid) do
+          nil -> nil
+          role -> preload_role(role)
+        end
+
+      :error ->
+        nil
     end
   end
 
@@ -280,9 +292,15 @@ defmodule SentientwaveAutomata.Governance do
   def get_proposal(%LawProposal{} = proposal), do: Repo.preload(proposal, proposal_preloads())
 
   def get_proposal(id) when is_binary(id) do
-    case Repo.get(LawProposal, id) do
-      nil -> nil
-      proposal -> Repo.preload(proposal, proposal_preloads())
+    case Ecto.UUID.cast(id) do
+      {:ok, uuid} ->
+        case Repo.get(LawProposal, uuid) do
+          nil -> nil
+          proposal -> Repo.preload(proposal, proposal_preloads())
+        end
+
+      :error ->
+        nil
     end
   end
 
@@ -376,7 +394,7 @@ defmodule SentientwaveAutomata.Governance do
         Repo.transaction(fn ->
           with {:ok, proposal} <- insert_proposal(proposal_attrs),
                :ok <- snapshot_proposal_electorate(proposal, role_ids) do
-            Repo.preload(proposal, proposal_preloads())
+            Repo.preload(proposal, proposal_preloads(), force: true)
           else
             {:error, reason} -> Repo.rollback(reason)
           end

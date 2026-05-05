@@ -112,14 +112,26 @@ defmodule SentientwaveAutomata.Governance.ProposalActivities do
     role_ids = resolve_role_ids(fetch_list(command, "eligible_role_ids"))
 
     %{
+      "reference" =>
+        fetch_value(command, "reference") || fetch_value(proposal_payload, "reference"),
       "workflow_id" => workflow_id,
       "proposal_type" => normalize_proposal_type(fetch_value(command, "proposal_type")),
       "law_id" => resolve_target_law_id(target_ref),
-      "proposed_slug" => fetch_value(proposal_payload, "slug"),
-      "proposed_name" => fetch_value(proposal_payload, "name"),
-      "proposed_markdown_body" => fetch_value(proposal_payload, "markdown_body"),
-      "proposed_law_kind" => fetch_value(proposal_payload, "law_kind"),
-      "rule_config" => fetch_map(proposal_payload, "rule_config"),
+      "proposed_slug" =>
+        fetch_value(proposal_payload, "slug") || fetch_value(proposal_payload, "proposed_slug") ||
+          fetch_value(command, "proposed_slug"),
+      "proposed_name" =>
+        fetch_value(proposal_payload, "name") || fetch_value(proposal_payload, "proposed_name") ||
+          fetch_value(command, "proposed_name"),
+      "proposed_markdown_body" =>
+        fetch_value(proposal_payload, "markdown_body") ||
+          fetch_value(proposal_payload, "proposed_markdown_body") ||
+          fetch_value(command, "proposed_markdown_body"),
+      "proposed_law_kind" =>
+        fetch_value(proposal_payload, "law_kind") ||
+          fetch_value(proposal_payload, "proposed_law_kind") ||
+          fetch_value(command, "proposed_law_kind"),
+      "rule_config" => merge_rule_config(command, proposal_payload),
       "reason" => fetch_value(proposal_payload, "reason") || fetch_value(command, "reason"),
       "voting_scope" => if(role_ids == [], do: "all_members", else: "role_subset"),
       "eligible_role_ids" => role_ids,
@@ -330,9 +342,14 @@ defmodule SentientwaveAutomata.Governance.ProposalActivities do
         "raw_event" -> :raw_event
         "metadata" -> :metadata
         "proposal_type" -> :proposal_type
+        "reference" -> :reference
         "choice" -> :choice
         "reason" -> :reason
         "rule_config" -> :rule_config
+        "proposed_slug" -> :proposed_slug
+        "proposed_name" -> :proposed_name
+        "proposed_markdown_body" -> :proposed_markdown_body
+        "proposed_law_kind" -> :proposed_law_kind
         "slug" -> :slug
         "name" -> :name
         "markdown_body" -> :markdown_body
@@ -356,6 +373,10 @@ defmodule SentientwaveAutomata.Governance.ProposalActivities do
       value when is_binary(value) -> String.split(value, ",", trim: true)
       _ -> []
     end
+  end
+
+  defp merge_rule_config(command, proposal_payload) do
+    Map.merge(fetch_map(command, "rule_config"), fetch_map(proposal_payload, "rule_config"))
   end
 
   defp matrix_adapter do
