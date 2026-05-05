@@ -40,6 +40,12 @@ defmodule SentientwaveAutomataWeb.Router do
   end
 
   scope "/", SentientwaveAutomataWeb do
+    pipe_through :api
+
+    get "/.well-known/matrix/server", WellKnownController, :matrix_server
+  end
+
+  scope "/", SentientwaveAutomataWeb do
     pipe_through [:browser, :admin_auth]
 
     get "/", PageController, :home
@@ -64,9 +70,11 @@ defmodule SentientwaveAutomataWeb.Router do
     get "/settings/llm/providers/:id", PageController, :llm_provider
     get "/observability/llm-traces", PageController, :llm_traces
     get "/observability/llm-traces/:id", PageController, :llm_trace
+    get "/settings/federation", PageController, :federation
     get "/settings/tools", PageController, :tools
     get "/settings/tools/new", PageController, :new_tool
     get "/settings/tools/:id", PageController, :tool
+    post "/settings/federation", PageController, :update_federation
     post "/settings/llm/providers", PageController, :create_llm_provider
     post "/settings/llm/providers/:id", PageController, :update_llm_provider
     post "/settings/llm/providers/:id/default", PageController, :set_default_llm_provider
