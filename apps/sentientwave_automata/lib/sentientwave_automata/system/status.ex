@@ -4,6 +4,7 @@ defmodule SentientwaveAutomata.System.Status do
   """
 
   @connection_info_path "/data/connection-info.txt"
+  alias SentientwaveAutomata.Settings
 
   @spec summary(keyword()) :: map()
   def summary(opts \\ []) do
@@ -34,6 +35,7 @@ defmodule SentientwaveAutomata.System.Status do
       invite_password: Map.get(info, :invite_password, ""),
       invite_users: env("MATRIX_INVITE_USERS", ""),
       homeserver_domain: env("MATRIX_HOMESERVER_DOMAIN", "localhost"),
+      federation: Settings.federation_effective(),
       source: if(map_size(info) > 0, do: "connection-info", else: "env"),
       services: %{
         automata: service_status(automata_check_url, disable_checks),
@@ -85,12 +87,15 @@ defmodule SentientwaveAutomata.System.Status do
   defp service_status(_url, true), do: "skipped"
 
   defp service_status(url, false) do
-    request = {String.to_charlist(url), []}
-    http_options = [timeout: 200, connect_timeout: 200]
-
-    case :httpc.request(:get, request, http_options, body_format: :binary) do
-      {:ok, {{_, status, _}, _, _}} when status in 200..399 -> "ok"
-      {:ok, {{_, status, _}, _, _}} -> "error:#{status}"
+    case Req.get(
+           url: url,
+           receive_timeout: 200,
+           connect_options: [timeout: 200],
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %{status: status}} when status in 200..399 -> "ok"
+      {:ok, %{status: status}} -> "error:#{status}"
       {:error, reason} -> "unreachable:#{inspect(reason)}"
     end
   end

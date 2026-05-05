@@ -364,32 +364,37 @@ defmodule SentientwaveAutomata.Adapters.Matrix.Synapse do
   defp retry_after_ms(_), do: 1_000
 
   defp request(method, url, headers, nil) do
-    opts = [timeout: request_timeout_ms(), connect_timeout: connect_timeout_ms()]
-    req = {String.to_charlist(url), normalize_headers(headers)}
-
-    case :httpc.request(method, req, opts, body_format: :binary) do
-      {:ok, {{_, status, _}, _resp_headers, resp_body}} -> {:ok, status, resp_body}
+    case Req.request(
+           method: method,
+           url: url,
+           headers: headers,
+           receive_timeout: request_timeout_ms(),
+           connect_options: [timeout: connect_timeout_ms()],
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %{status: status, body: resp_body}} -> {:ok, status, resp_body}
       {:error, reason} -> {:error, reason}
     end
   end
 
   defp request(method, url, headers, payload) when is_map(payload) do
-    body = Jason.encode!(payload)
-    req_headers = [{"content-type", "application/json"} | headers] |> normalize_headers()
-    opts = [timeout: request_timeout_ms(), connect_timeout: connect_timeout_ms()]
-    req = {String.to_charlist(url), req_headers, ~c"application/json", body}
-
-    case :httpc.request(method, req, opts, body_format: :binary) do
-      {:ok, {{_, status, _}, _resp_headers, resp_body}} -> {:ok, status, resp_body}
+    case Req.request(
+           method: method,
+           url: url,
+           headers: headers,
+           json: payload,
+           receive_timeout: request_timeout_ms(),
+           connect_options: [timeout: connect_timeout_ms()],
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %{status: status, body: resp_body}} -> {:ok, status, resp_body}
       {:error, reason} -> {:error, reason}
     end
   end
 
   defp auth_headers(token), do: [{"authorization", "Bearer " <> token}]
-
-  defp normalize_headers(headers) do
-    Enum.map(headers, fn {k, v} -> {to_charlist(k), to_charlist(v)} end)
-  end
 
   defp matrix_url, do: System.get_env("MATRIX_URL", "http://127.0.0.1:8008")
   defp matrix_domain, do: System.get_env("MATRIX_HOMESERVER_DOMAIN", "localhost")

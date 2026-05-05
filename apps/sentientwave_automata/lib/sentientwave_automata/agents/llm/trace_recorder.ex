@@ -71,8 +71,8 @@ defmodule SentientwaveAutomata.Agents.LLM.TraceRecorder do
 
     %{
       agent_id: present(Map.get(call_meta, :agent_id)),
-      run_id: present(get_in(call_meta, [:trace_context, :run_id])),
-      mention_id: present(get_in(call_meta, [:trace_context, :mention_id])),
+      run_id: assoc_id(get_in(call_meta, [:trace_context, :run_id])),
+      mention_id: assoc_id(get_in(call_meta, [:trace_context, :mention_id])),
       provider_config_id: present(Map.get(call_meta, :provider_config_id)),
       provider: to_string(Map.get(call_meta, :provider, "")),
       model: to_string(Map.get(call_meta, :model, "")),
@@ -126,6 +126,19 @@ defmodule SentientwaveAutomata.Agents.LLM.TraceRecorder do
   end
 
   defp resolve_requester(_), do: %{}
+
+  defp assoc_id(value) do
+    case present(value) do
+      nil ->
+        nil
+
+      id ->
+        case Ecto.UUID.cast(id) do
+          {:ok, uuid} -> uuid
+          :error -> nil
+        end
+    end
+  end
 
   defp build_request_payload(call_meta) do
     %{

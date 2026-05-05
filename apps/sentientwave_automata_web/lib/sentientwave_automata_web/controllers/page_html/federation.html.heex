@@ -1,0 +1,221 @@
+<.admin_shell
+  flash={@flash}
+  title="Matrix Federation"
+  subtitle="Control how this homeserver is discovered by trusted remote Matrix homeservers."
+  status={@status}
+  admin_user={@admin_user}
+  nav={@nav}
+>
+  <section class="sw-card">
+    <div class="sw-section-header">
+      <div>
+        <h2 class="sw-card-title">Federation Control</h2>
+        <p class="sw-card-copy">
+          Publish server discovery, keep a clear trust boundary, and generate the homeserver settings needed for rollout.
+        </p>
+      </div>
+
+      <span class={["sw-pill", @federation.enabled && "is-ok"]}>
+        {if @federation.enabled, do: "Enabled", else: "Disabled"}
+      </span>
+    </div>
+
+    <div class="sw-kpi-grid mt-5">
+      <article class="sw-kpi-card">
+        <p class="sw-kpi-label">Server Name</p>
+        <p class="sw-kpi-value sw-kpi-value-small">{@federation.server_name}</p>
+        <p class="sw-kpi-copy">The public Matrix identity peers use for server-server traffic.</p>
+      </article>
+
+      <article class="sw-kpi-card">
+        <p class="sw-kpi-label">Discovery</p>
+        <p class="sw-kpi-value sw-kpi-value-small">{@discovery_state.label}</p>
+        <p class="sw-kpi-copy">{@discovery_state.detail}</p>
+      </article>
+
+      <article class="sw-kpi-card">
+        <p class="sw-kpi-label">Trust Boundary</p>
+        <p class="sw-kpi-value sw-kpi-value-small">
+          {if @federation.allowlist_enabled, do: "#{@allowlist_count} domains", else: "Open"}
+        </p>
+        <p class="sw-kpi-copy">
+          {if @federation.allowlist_enabled,
+            do: "Only listed homeservers should be accepted by the homeserver.",
+            else: "No domain allowlist is configured here."}
+        </p>
+      </article>
+    </div>
+  </section>
+
+  <section class="sw-card">
+    <div class="sw-section-header">
+      <div>
+        <h2 class="sw-card-title">Runtime Settings</h2>
+        <p class="sw-card-copy">
+          These values are stored in the application database and used by the discovery endpoint immediately.
+        </p>
+      </div>
+
+      <span class="sw-pill">
+        Source: {if @federation.configured_in_db, do: "database", else: "environment"}
+      </span>
+    </div>
+
+    <form action={~p"/settings/federation"} method="post" class="sw-form-grid mt-5">
+      <input type="hidden" name="_csrf_token" value={Plug.CSRFProtection.get_csrf_token()} />
+
+      <label class="sw-field">
+        <span>Matrix server name</span>
+        <input
+          name="federation[server_name]"
+          class="sw-input"
+          value={@federation_form[:server_name].value}
+          placeholder="example.com"
+        />
+        <p class="sw-field-help">
+          Use the stable server name that appears after the colon in Matrix IDs.
+        </p>
+      </label>
+
+      <label class="sw-field">
+        <span>Public base URL</span>
+        <input
+          name="federation[public_base_url]"
+          class="sw-input"
+          value={@federation_form[:public_base_url].value}
+          placeholder="https://matrix.example.com/"
+        />
+        <p class="sw-field-help">
+          The client-facing homeserver URL used in generated Synapse settings.
+        </p>
+      </label>
+
+      <label class="sw-field">
+        <span>Delegation target</span>
+        <input
+          name="federation[delegation_target]"
+          class="sw-input"
+          value={@federation_form[:delegation_target].value}
+          placeholder="matrix.example.com:8448"
+        />
+        <p class="sw-field-help">
+          Published at /.well-known/matrix/server as the m.server value.
+        </p>
+      </label>
+
+      <label class="sw-field">
+        <span>Allowed homeservers</span>
+        <textarea
+          name="federation[allowlist_domains]"
+          class="sw-textarea"
+          rows="5"
+          placeholder="partner.example\nresearch.example"
+        ><%= @federation_form[:allowlist_domains].value %></textarea>
+        <p class="sw-field-help">Enter one domain per line, or separate domains with commas.</p>
+      </label>
+
+      <label class="sw-field sw-field-span">
+        <span>Operational notes</span>
+        <textarea
+          name="federation[notes]"
+          class="sw-textarea"
+          rows="4"
+          placeholder="Firewall, DNS, certificate, and partner rollout notes"
+        ><%= @federation_form[:notes].value %></textarea>
+      </label>
+
+      <input type="hidden" name="federation[enabled]" value="false" />
+      <label class="sw-checkbox-row">
+        <input
+          type="checkbox"
+          name="federation[enabled]"
+          value="true"
+          checked={@federation.enabled}
+        />
+        <span>Enable federation controls</span>
+      </label>
+
+      <input type="hidden" name="federation[delegation_enabled]" value="false" />
+      <label class="sw-checkbox-row">
+        <input
+          type="checkbox"
+          name="federation[delegation_enabled]"
+          value="true"
+          checked={@federation.delegation_enabled}
+        />
+        <span>Publish delegated discovery</span>
+      </label>
+
+      <input type="hidden" name="federation[allowlist_enabled]" value="false" />
+      <label class="sw-checkbox-row">
+        <input
+          type="checkbox"
+          name="federation[allowlist_enabled]"
+          value="true"
+          checked={@federation.allowlist_enabled}
+        />
+        <span>Restrict to allowlist</span>
+      </label>
+
+      <input type="hidden" name="federation[profile_lookup_enabled]" value="false" />
+      <label class="sw-checkbox-row">
+        <input
+          type="checkbox"
+          name="federation[profile_lookup_enabled]"
+          value="true"
+          checked={@federation.profile_lookup_enabled}
+        />
+        <span>Allow profile lookup</span>
+      </label>
+
+      <input type="hidden" name="federation[media_federation_enabled]" value="false" />
+      <label class="sw-checkbox-row">
+        <input
+          type="checkbox"
+          name="federation[media_federation_enabled]"
+          value="true"
+          checked={@federation.media_federation_enabled}
+        />
+        <span>Allow federated media</span>
+      </label>
+
+      <div class="sw-field-span sw-actions">
+        <button type="submit" class="sw-btn sw-btn-primary">Save Federation Settings</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="sw-card">
+    <div class="sw-section-header">
+      <div>
+        <h2 class="sw-card-title">Discovery Preview</h2>
+        <p class="sw-card-copy">
+          Remote Matrix servers request this JSON when the server name delegates traffic to another host and port.
+        </p>
+      </div>
+
+      <a href={~p"/.well-known/matrix/server"} class="sw-btn sw-btn-ghost sw-btn-small">
+        Open JSON
+      </a>
+    </div>
+
+    <pre class="sw-code-block mt-5"><code phx-no-curly-interpolation>{
+  "m.server": "<%= @federation.delegation_target %>"
+}</code></pre>
+  </section>
+
+  <section class="sw-card">
+    <div class="sw-section-header">
+      <div>
+        <h2 class="sw-card-title">Synapse Configuration</h2>
+        <p class="sw-card-copy">
+          Apply the matching homeserver settings when the Matrix service is managed outside this web process.
+        </p>
+      </div>
+
+      <span class={["sw-pill", @discovery_state.class]}>{@discovery_state.label}</span>
+    </div>
+
+    <pre class="sw-code-block mt-5"><code><%= @synapse_snippet %></code></pre>
+  </section>
+</.admin_shell>

@@ -223,12 +223,15 @@ defmodule SentientwaveAutomata.Agents.DeepResearch do
     normalize_queries(variants, [base_query], limit)
   end
 
-  defp brave_search_available?(available_tools) do
+  @spec brave_search_available?([map()]) :: boolean()
+  def brave_search_available?(available_tools) when is_list(available_tools) do
     Enum.any?(
       available_tools,
       &(Map.get(&1, :name) == "brave_search" or Map.get(&1, "name") == "brave_search")
     )
   end
+
+  def brave_search_available?(_available_tools), do: false
 
   defp normalize_input(user_input) do
     user_input

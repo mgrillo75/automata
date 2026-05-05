@@ -142,7 +142,7 @@ defmodule SentientwaveAutomata.Agents.LLM.Client do
         Executor.available_tools(Keyword.get(opts, :agent_id))
 
     explicit? = explicit_deep_research?(opts)
-    fallback = DeepResearch.fallback_decision(user_input, available_tools)
+    fallback = deep_research_fallback(user_input, available_tools, explicit?)
 
     cond do
       not DeepResearch.should_consider?(user_input, available_tools) and not explicit? ->
@@ -171,6 +171,27 @@ defmodule SentientwaveAutomata.Agents.LLM.Client do
           _ -> fallback
         end
     end
+  end
+
+  defp deep_research_fallback(user_input, available_tools, true) do
+    if DeepResearch.brave_search_available?(available_tools) do
+      DeepResearch.normalize_decision(
+        %{
+          "enabled" => true,
+          "requested_by_user" => true,
+          "reason" => "explicit_user_request",
+          "queries" => [user_input]
+        },
+        user_input,
+        available_tools
+      )
+    else
+      DeepResearch.fallback_decision(user_input, available_tools)
+    end
+  end
+
+  defp deep_research_fallback(user_input, available_tools, _explicit?) do
+    DeepResearch.fallback_decision(user_input, available_tools)
   end
 
   @spec review_deep_research_round(keyword(), map()) :: {:ok, map()} | {:error, term()}

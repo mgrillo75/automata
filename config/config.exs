@@ -39,21 +39,25 @@ config :sentientwave_automata,
   embedding_dim: 64,
   agent_skills_path: "skills"
 
-config :temporal_sdk,
-  node: %{scope_config: [automata: 10]},
-  clusters: [
-    automata: [
-      client: %{
-        adapter:
-          {:temporal_sdk_grpc_adapter_gun_pool,
-           [endpoints: [{{127, 0, 0, 1}, 7233}], pool_size: 5]},
-        grpc_opts: [timeout: 2_000],
-        grpc_opts_longpoll: [timeout: 70_000]
-      },
-      workflows: [[task_queue: "automata-workflows"]],
-      activities: [[task_queue: "automata-activities"]]
+if config_env() == :test do
+  config :temporal_sdk, node: %{scope_config: []}, clusters: []
+else
+  config :temporal_sdk,
+    node: %{scope_config: [automata: 10]},
+    clusters: [
+      automata: [
+        client: %{
+          adapter:
+            {:temporal_sdk_grpc_adapter_gun_pool,
+             [endpoints: [{{127, 0, 0, 1}, 7233}], pool_size: 5]},
+          grpc_opts: [timeout: 2_000],
+          grpc_opts_longpoll: [timeout: 70_000]
+        },
+        workflows: [[task_queue: "automata-workflows"]],
+        activities: [[task_queue: "automata-activities"]]
+      ]
     ]
-  ]
+end
 
 config :sentientwave_automata_web,
   ecto_repos: [SentientwaveAutomata.Repo],

@@ -4,12 +4,13 @@ defmodule SentientwaveAutomata.Governance.Room do
   """
 
   @connection_info_path "/data/connection-info.txt"
+  @default_room_id "!governance:localhost"
   @default_room_alias "governance"
 
   @spec room_id() :: String.t() | nil
   def room_id do
     connection_info()
-    |> Map.get(:governance_room_id, System.get_env("MATRIX_GOVERNANCE_ROOM_ID", ""))
+    |> Map.get(:governance_room_id, System.get_env("MATRIX_GOVERNANCE_ROOM_ID", @default_room_id))
     |> normalize_value()
   end
 

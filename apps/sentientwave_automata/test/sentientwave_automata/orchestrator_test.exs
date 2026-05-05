@@ -1,5 +1,5 @@
 defmodule SentientwaveAutomata.OrchestratorTest do
-  use ExUnit.Case, async: true
+  use SentientwaveAutomata.DataCase, async: true
 
   alias SentientwaveAutomata.Orchestrator
 

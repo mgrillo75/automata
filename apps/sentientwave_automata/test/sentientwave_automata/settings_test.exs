@@ -117,4 +117,42 @@ defmodule SentientwaveAutomata.SettingsTest do
     assert updated.name == "Brave Search Prod"
     assert updated.enabled == false
   end
+
+  test "creates federation config and publishes well known discovery" do
+    assert {:ok, config} =
+             Settings.upsert_federation_config(%{
+               "enabled" => "true",
+               "server_name" => "Example.COM",
+               "public_base_url" => "https://matrix.example.com",
+               "delegation_enabled" => "true",
+               "delegation_target" => "https://Matrix.Example.COM:8448/_matrix",
+               "allowlist_enabled" => "true",
+               "allowlist_domains" => "partner.example, @alice:Research.Example\npartner.example",
+               "profile_lookup_enabled" => "false",
+               "media_federation_enabled" => "true"
+             })
+
+    assert config.server_name == "example.com"
+    assert config.delegation_target == "matrix.example.com:8448"
+    assert config.allowlist_domains == ["partner.example", "research.example"]
+
+    effective = Settings.federation_effective()
+    assert effective.enabled == true
+    assert effective.profile_lookup_enabled == false
+    assert effective.configured_in_db == true
+
+    assert {:ok, %{"m.server" => "matrix.example.com:8448"}} =
+             Settings.federation_well_known()
+  end
+
+  test "well known discovery is unavailable when federation is disabled" do
+    assert {:ok, _config} =
+             Settings.upsert_federation_config(%{
+               "enabled" => "false",
+               "server_name" => "example.com",
+               "delegation_target" => "matrix.example.com:8448"
+             })
+
+    assert {:error, :disabled} = Settings.federation_well_known()
+  end
 end

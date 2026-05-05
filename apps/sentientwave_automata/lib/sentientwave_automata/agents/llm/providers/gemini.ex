@@ -23,6 +23,7 @@ defmodule SentientwaveAutomata.Agents.LLM.Providers.Gemini do
         nil -> System.get_env("AUTOMATA_LLM_API_BASE", @default_base_url)
         configured_base_url -> configured_base_url
       end
+      |> normalize_base_url("/v1beta")
 
     api_key =
       Keyword.get(opts, :api_key)
@@ -196,6 +197,18 @@ defmodule SentientwaveAutomata.Agents.LLM.Providers.Gemini do
       trimmed -> trimmed
     end
   end
+
+  defp normalize_base_url(base_url, default_path) when is_binary(base_url) do
+    uri = URI.parse(base_url)
+
+    if uri.scheme && uri.host && uri.path in [nil, ""] do
+      URI.to_string(%{uri | path: default_path})
+    else
+      base_url
+    end
+  end
+
+  defp normalize_base_url(base_url, _default_path), do: base_url
 
   defp normalize_model(value) do
     value

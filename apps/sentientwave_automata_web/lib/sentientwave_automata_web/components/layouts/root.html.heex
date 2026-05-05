@@ -10,44 +10,6 @@
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
-    <script>
-      (() => {
-        const prefersDark = () =>
-          window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-
-        const applyTheme = (mode) => {
-          const resolved = mode === "auto" ? (prefersDark() ? "dark" : "light") : mode;
-          document.documentElement.setAttribute("data-theme", resolved);
-          document.documentElement.setAttribute("data-sw-theme-mode", mode);
-        };
-
-        const setTheme = (mode) => {
-          if (mode === "auto") {
-            localStorage.removeItem("phx:theme");
-          } else {
-            localStorage.setItem("phx:theme", mode);
-          }
-
-          applyTheme(mode);
-        };
-
-        const storedTheme = localStorage.getItem("phx:theme");
-        applyTheme(storedTheme || "auto");
-
-        window.addEventListener("storage", (e) => {
-          if (e.key === "phx:theme") applyTheme(e.newValue || "auto");
-        });
-
-        const media = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
-        if (media) {
-          media.addEventListener("change", () => {
-            if (!localStorage.getItem("phx:theme")) applyTheme("auto");
-          });
-        }
-
-        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
-      })();
-    </script>
   </head>
   <body class="sw-body">
     {@inner_content}

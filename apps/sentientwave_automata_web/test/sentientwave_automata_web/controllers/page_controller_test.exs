@@ -171,6 +171,67 @@ defmodule SentientwaveAutomataWeb.PageControllerTest do
     assert html_response(conn, 200) =~ "Tool Management"
   end
 
+  test "GET /settings/federation renders federation controls when authenticated", %{conn: conn} do
+    conn =
+      conn
+      |> init_test_session(automata_admin_authenticated: true)
+      |> get(~p"/settings/federation")
+
+    body = html_response(conn, 200)
+    assert body =~ "Federation Control"
+    assert body =~ "Discovery Preview"
+  end
+
+  test "POST /settings/federation updates federation settings", %{conn: conn} do
+    conn =
+      conn
+      |> init_test_session(automata_admin_authenticated: true)
+      |> post(~p"/settings/federation", %{
+        "federation" => %{
+          "enabled" => "true",
+          "server_name" => "example.org",
+          "public_base_url" => "https://matrix.example.org",
+          "delegation_enabled" => "true",
+          "delegation_target" => "matrix.example.org:8448",
+          "allowlist_enabled" => "true",
+          "allowlist_domains" => "partner.example\nresearch.example",
+          "profile_lookup_enabled" => "true",
+          "media_federation_enabled" => "false"
+        }
+      })
+
+    assert redirected_to(conn) == "/settings/federation"
+    assert Settings.federation_effective().server_name == "example.org"
+
+    assert Settings.federation_effective().allowlist_domains == [
+             "partner.example",
+             "research.example"
+           ]
+
+    assert Settings.federation_effective().media_federation_enabled == false
+  end
+
+  test "GET /.well-known/matrix/server returns Matrix discovery JSON when enabled", %{conn: conn} do
+    assert {:ok, _config} =
+             Settings.upsert_federation_config(%{
+               "enabled" => "true",
+               "server_name" => "example.org",
+               "delegation_enabled" => "true",
+               "delegation_target" => "matrix.example.org:8448"
+             })
+
+    conn = get(conn, ~p"/.well-known/matrix/server")
+
+    assert json_response(conn, 200) == %{"m.server" => "matrix.example.org:8448"}
+    assert get_resp_header(conn, "access-control-allow-origin") == ["*"]
+  end
+
+  test "GET /.well-known/matrix/server returns 404 when discovery is disabled", %{conn: conn} do
+    conn = get(conn, ~p"/.well-known/matrix/server")
+
+    assert %{"error" => _message, "reason" => "disabled"} = json_response(conn, 404)
+  end
+
   test "GET /directory/users renders directory page when authenticated", %{conn: conn} do
     assert {:ok, _user} =
              Directory.upsert_user(%{
