@@ -4,6 +4,7 @@ defmodule SentientwaveAutomata.System.Status do
   """
 
   @connection_info_path "/data/connection-info.txt"
+  alias SentientwaveAutomata.Settings
 
   @spec summary(keyword()) :: map()
   def summary(opts \\ []) do
@@ -34,6 +35,7 @@ defmodule SentientwaveAutomata.System.Status do
       invite_password: Map.get(info, :invite_password, ""),
       invite_users: env("MATRIX_INVITE_USERS", ""),
       homeserver_domain: env("MATRIX_HOMESERVER_DOMAIN", "localhost"),
+      federation: Settings.federation_effective(),
       source: if(map_size(info) > 0, do: "connection-info", else: "env"),
       services: %{
         automata: service_status(automata_check_url, disable_checks),

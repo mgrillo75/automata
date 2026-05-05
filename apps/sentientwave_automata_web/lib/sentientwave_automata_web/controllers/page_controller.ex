@@ -578,6 +578,10 @@ defmodule SentientwaveAutomataWeb.PageController do
     render_tools(conn)
   end
 
+  def federation(conn, _params) do
+    render_federation(conn)
+  end
+
   def skills(conn, params) do
     status = Status.summary()
     {skill_filters, skill_filter_form} = skill_filters_from_params(params)
@@ -738,6 +742,26 @@ defmodule SentientwaveAutomataWeb.PageController do
     conn
     |> put_flash(:error, "Invalid provider payload.")
     |> redirect(to: ~p"/settings/llm")
+  end
+
+  def update_federation(conn, %{"federation" => federation_params}) do
+    case Settings.upsert_federation_config(federation_params) do
+      {:ok, _config} ->
+        conn
+        |> put_flash(:info, "Federation settings updated.")
+        |> redirect(to: ~p"/settings/federation")
+
+      {:error, _changeset} ->
+        conn
+        |> put_flash(:error, "Could not update federation settings.")
+        |> redirect(to: ~p"/settings/federation")
+    end
+  end
+
+  def update_federation(conn, _params) do
+    conn
+    |> put_flash(:error, "Invalid federation payload.")
+    |> redirect(to: ~p"/settings/federation")
   end
 
   def update_llm_provider(conn, %{"id" => id, "llm" => llm_params}) do
@@ -1268,6 +1292,23 @@ defmodule SentientwaveAutomataWeb.PageController do
     )
   end
 
+  defp render_federation(conn) do
+    status = Status.summary()
+    federation = Settings.federation_effective()
+
+    render(conn, :federation,
+      status: status,
+      admin_user: AdminAuth.expected_username(),
+      nav: nav("federation"),
+      federation: federation,
+      federation_form:
+        Phoenix.Component.to_form(Settings.federation_form_attrs(), as: :federation),
+      synapse_snippet: Settings.federation_synapse_snippet(federation),
+      discovery_state: federation_discovery_state(federation),
+      allowlist_count: length(federation.allowlist_domains)
+    )
+  end
+
   defp skill_filters_from_params(params) do
     raw = Map.get(params, "filters", %{})
 
@@ -1421,6 +1462,12 @@ defmodule SentientwaveAutomataWeb.PageController do
       %{id: "skills", label: "Skills", href: "/settings/skills", active: active == "skills"},
       %{id: "llm", label: "Providers", href: "/settings/llm", active: active == "llm"},
       %{
+        id: "federation",
+        label: "Federation",
+        href: "/settings/federation",
+        active: active == "federation"
+      },
+      %{
         id: "llm_traces",
         label: "Traces",
         href: "/observability/llm-traces",
@@ -1428,6 +1475,30 @@ defmodule SentientwaveAutomataWeb.PageController do
       },
       %{id: "tools", label: "Tools", href: "/settings/tools", active: active == "tools"}
     ]
+  end
+
+  defp federation_discovery_state(federation) do
+    cond do
+      not federation.enabled ->
+        %{label: "Disabled", class: nil, detail: "Federation traffic is not advertised."}
+
+      not federation.delegation_enabled ->
+        %{label: "Direct", class: "is-ok", detail: "Peers resolve the server name directly."}
+
+      federation.delegation_target in [nil, ""] ->
+        %{
+          label: "Needs Target",
+          class: "is-warning",
+          detail: "Add a host:port target for discovery."
+        }
+
+      true ->
+        %{
+          label: "Delegated",
+          class: "is-ok",
+          detail: "Discovery publishes #{federation.delegation_target}."
+        }
+    end
   end
 
   defp sanitize_llm_params(params) do

@@ -7,6 +7,7 @@ defmodule SentientwaveAutomata.Settings do
 
   alias SentientwaveAutomata.Repo
   alias SentientwaveAutomata.RuntimeConfig
+  alias SentientwaveAutomata.Settings.FederationConfig
   alias SentientwaveAutomata.Settings.LLMProviderConfig
   alias SentientwaveAutomata.Settings.ToolConfig
 
@@ -24,6 +25,140 @@ defmodule SentientwaveAutomata.Settings do
     "lm-studio" => %{model: "local-model", base_url: "http://host.containers.internal:1234/v1"},
     "ollama" => %{model: "llama3.1", base_url: "http://host.containers.internal:11434"}
   }
+
+  @spec get_federation_config() :: FederationConfig.t() | nil
+  def get_federation_config do
+    Repo.get_by(FederationConfig, singleton_key: @singleton_key)
+  rescue
+    _ -> nil
+  end
+
+  @spec federation_effective() :: map()
+  def federation_effective do
+    config = get_federation_config()
+
+    %{
+      id: config_field(config, :id),
+      enabled:
+        config_bool_value(config, :enabled, env_truthy?("MATRIX_FEDERATION_ENABLED", false)),
+      server_name:
+        config_value(
+          config,
+          :server_name,
+          System.get_env("MATRIX_HOMESERVER_DOMAIN", "localhost")
+        ),
+      public_base_url:
+        config_value(config, :public_base_url, System.get_env("MATRIX_PUBLIC_BASE_URL", "")),
+      delegation_enabled:
+        config_bool_value(
+          config,
+          :delegation_enabled,
+          env_truthy?("MATRIX_DELEGATION_ENABLED", true)
+        ),
+      delegation_target:
+        config_value(config, :delegation_target, System.get_env("MATRIX_DELEGATION_TARGET", "")),
+      allowlist_enabled:
+        config_bool_value(
+          config,
+          :allowlist_enabled,
+          env_truthy?("MATRIX_FEDERATION_ALLOWLIST_ENABLED", false)
+        ),
+      allowlist_domains:
+        config_list_value(
+          config,
+          :allowlist_domains,
+          normalize_domain_list(System.get_env("MATRIX_FEDERATION_ALLOWLIST", ""))
+        ),
+      profile_lookup_enabled:
+        config_bool_value(
+          config,
+          :profile_lookup_enabled,
+          env_truthy?("MATRIX_PROFILE_LOOKUP_OVER_FEDERATION", true)
+        ),
+      media_federation_enabled:
+        config_bool_value(
+          config,
+          :media_federation_enabled,
+          env_truthy?("MATRIX_MEDIA_FEDERATION_ENABLED", true)
+        ),
+      notes: config_value(config, :notes, ""),
+      configured_in_db: is_struct(config, FederationConfig)
+    }
+  end
+
+  @spec federation_form_attrs() :: map()
+  def federation_form_attrs do
+    effective = federation_effective()
+
+    %{
+      "enabled" => bool_string(effective.enabled),
+      "server_name" => effective.server_name,
+      "public_base_url" => effective.public_base_url,
+      "delegation_enabled" => bool_string(effective.delegation_enabled),
+      "delegation_target" => effective.delegation_target,
+      "allowlist_enabled" => bool_string(effective.allowlist_enabled),
+      "allowlist_domains" => Enum.join(effective.allowlist_domains, "\n"),
+      "profile_lookup_enabled" => bool_string(effective.profile_lookup_enabled),
+      "media_federation_enabled" => bool_string(effective.media_federation_enabled),
+      "notes" => effective.notes
+    }
+  end
+
+  @spec upsert_federation_config(map()) ::
+          {:ok, FederationConfig.t()} | {:error, Ecto.Changeset.t()}
+  def upsert_federation_config(attrs) when is_map(attrs) do
+    attrs = normalize_federation_attrs(attrs)
+    config = get_federation_config() || %FederationConfig{singleton_key: @singleton_key}
+
+    config
+    |> FederationConfig.changeset(attrs)
+    |> Repo.insert_or_update()
+  end
+
+  @spec federation_well_known() ::
+          {:ok, map()} | {:error, :disabled | :delegation_disabled | :missing_delegation_target}
+  def federation_well_known do
+    effective = federation_effective()
+
+    cond do
+      not effective.enabled ->
+        {:error, :disabled}
+
+      not effective.delegation_enabled ->
+        {:error, :delegation_disabled}
+
+      blank?(effective.delegation_target) ->
+        {:error, :missing_delegation_target}
+
+      true ->
+        {:ok, %{"m.server" => effective.delegation_target}}
+    end
+  end
+
+  @spec federation_synapse_snippet(map()) :: String.t()
+  def federation_synapse_snippet(config \\ federation_effective()) when is_map(config) do
+    allowlist =
+      if config.allowlist_enabled && config.allowlist_domains != [] do
+        domains =
+          config.allowlist_domains
+          |> Enum.map(&"  - #{&1}")
+          |> Enum.join("\n")
+
+        "\nfederation_domain_whitelist:\n#{domains}"
+      else
+        ""
+      end
+
+    """
+    server_name: "#{config.server_name}"
+    public_baseurl: "#{config.public_base_url}"
+    federation_enabled: #{config.enabled}
+    allow_profile_lookup_over_federation: #{config.profile_lookup_enabled}
+    allow_public_rooms_over_federation: #{config.enabled}
+    enable_media_repo: #{config.media_federation_enabled}#{allowlist}
+    """
+    |> String.trim()
+  end
 
   @spec list_llm_provider_configs() :: [LLMProviderConfig.t()]
   def list_llm_provider_configs do
@@ -470,6 +605,120 @@ defmodule SentientwaveAutomata.Settings do
       _ -> fallback
     end
   end
+
+  defp config_bool_value(nil, _field, fallback), do: fallback
+
+  defp config_bool_value(config, field, fallback) do
+    case Map.get(config, field) do
+      value when is_boolean(value) -> value
+      _ -> fallback
+    end
+  end
+
+  defp config_list_value(nil, _field, fallback), do: fallback
+
+  defp config_list_value(config, field, fallback) do
+    case Map.get(config, field) do
+      value when is_list(value) -> value
+      _ -> fallback
+    end
+  end
+
+  defp normalize_federation_attrs(attrs) do
+    attrs
+    |> Map.take([
+      "enabled",
+      "server_name",
+      "public_base_url",
+      "delegation_enabled",
+      "delegation_target",
+      "allowlist_enabled",
+      "allowlist_domains",
+      "profile_lookup_enabled",
+      "media_federation_enabled",
+      "notes"
+    ])
+    |> Map.update("enabled", false, &truthy?/1)
+    |> Map.update(
+      "server_name",
+      System.get_env("MATRIX_HOMESERVER_DOMAIN", "localhost"),
+      &normalize_server_name/1
+    )
+    |> Map.update("public_base_url", "", &String.trim(to_string(&1)))
+    |> Map.update("delegation_enabled", true, &truthy?/1)
+    |> Map.update("delegation_target", "", &normalize_delegation_target/1)
+    |> Map.update("allowlist_enabled", false, &truthy?/1)
+    |> Map.update("allowlist_domains", [], &normalize_domain_list/1)
+    |> Map.update("profile_lookup_enabled", true, &truthy?/1)
+    |> Map.update("media_federation_enabled", true, &truthy?/1)
+    |> Map.update("notes", "", &String.trim(to_string(&1)))
+    |> Map.put("singleton_key", @singleton_key)
+  end
+
+  defp normalize_server_name(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> String.downcase()
+  end
+
+  defp normalize_delegation_target(value) do
+    value
+    |> to_string()
+    |> String.trim()
+    |> String.downcase()
+    |> String.replace_prefix("https://", "")
+    |> String.replace_prefix("http://", "")
+    |> String.split("/", parts: 2)
+    |> List.first()
+    |> to_string()
+  end
+
+  defp normalize_domain_list(values) when is_list(values) do
+    values
+    |> Enum.flat_map(&String.split(to_string(&1), ~r/[\s,]+/, trim: true))
+    |> Enum.map(&normalize_domain/1)
+    |> Enum.reject(&blank?/1)
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp normalize_domain_list(value) do
+    value
+    |> to_string()
+    |> String.split(~r/[\s,]+/, trim: true)
+    |> normalize_domain_list()
+  end
+
+  defp normalize_domain(value) do
+    trimmed = value |> to_string() |> String.trim()
+
+    trimmed =
+      if String.starts_with?(trimmed, ["@", "#", "!"]) do
+        trimmed
+        |> String.trim_leading("@")
+        |> String.trim_leading("#")
+        |> String.trim_leading("!")
+        |> String.split(":", parts: 2)
+        |> List.last()
+        |> to_string()
+      else
+        trimmed
+      end
+
+    trimmed
+    |> String.downcase()
+  end
+
+  defp env_truthy?(key, default) do
+    case System.get_env(key) do
+      nil -> default
+      value -> truthy?(value)
+    end
+  end
+
+  defp bool_string(true), do: "true"
+  defp bool_string(_), do: "false"
 
   defp normalize_provider(value) do
     value
