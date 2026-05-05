@@ -236,7 +236,7 @@ defmodule SentientwaveAutomata.Matrix.Directory do
 
   defp to_public_user(%DirectoryUser{} = user) do
     %{
-      id: "#{user.kind}:#{user.localpart}",
+      id: user.id,
       localpart: user.localpart,
       kind: user.kind,
       display_name: user.display_name || user.localpart,
@@ -249,7 +249,7 @@ defmodule SentientwaveAutomata.Matrix.Directory do
 
   defp to_user_with_password(%DirectoryUser{} = user) do
     %{
-      id: "#{user.kind}:#{user.localpart}",
+      id: user.id,
       localpart: user.localpart,
       kind: user.kind,
       display_name: user.display_name || user.localpart,

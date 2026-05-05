@@ -9,7 +9,7 @@ defmodule SentientwaveAutomata.Governance.ProposalElector do
   @foreign_key_type :binary_id
 
   schema "governance_proposal_electors" do
-    field :eligibility_scope, :string, default: "all_members"
+    field :eligible_via, :string, default: "all_members"
     field :metadata, :map, default: %{}
 
     belongs_to :proposal, LawProposal
@@ -20,8 +20,8 @@ defmodule SentientwaveAutomata.Governance.ProposalElector do
 
   def changeset(elector, attrs) do
     elector
-    |> cast(attrs, [:proposal_id, :user_id, :eligibility_scope, :metadata])
-    |> validate_required([:proposal_id, :user_id, :eligibility_scope])
+    |> cast(attrs, [:proposal_id, :user_id, :eligible_via, :metadata])
+    |> validate_required([:proposal_id, :user_id, :eligible_via])
     |> assoc_constraint(:proposal)
     |> assoc_constraint(:user)
     |> unique_constraint(:user_id, name: :governance_proposal_electors_proposal_id_user_id_index)

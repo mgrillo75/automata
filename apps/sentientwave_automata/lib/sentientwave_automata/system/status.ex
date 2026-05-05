@@ -85,12 +85,15 @@ defmodule SentientwaveAutomata.System.Status do
   defp service_status(_url, true), do: "skipped"
 
   defp service_status(url, false) do
-    request = {String.to_charlist(url), []}
-    http_options = [timeout: 200, connect_timeout: 200]
-
-    case :httpc.request(:get, request, http_options, body_format: :binary) do
-      {:ok, {{_, status, _}, _, _}} when status in 200..399 -> "ok"
-      {:ok, {{_, status, _}, _, _}} -> "error:#{status}"
+    case Req.get(
+           url: url,
+           receive_timeout: 200,
+           connect_options: [timeout: 200],
+           decode_body: false,
+           retry: false
+         ) do
+      {:ok, %{status: status}} when status in 200..399 -> "ok"
+      {:ok, %{status: status}} -> "error:#{status}"
       {:error, reason} -> "unreachable:#{inspect(reason)}"
     end
   end

@@ -14,6 +14,10 @@ config :sentientwave_automata, SentientwaveAutomata.Repo,
   pool_size: System.schedulers_online() * 2
 
 config :sentientwave_automata, background_workers_enabled: false
+
+config :sentientwave_automata,
+  temporal_adapter: SentientwaveAutomata.TestSupport.TemporalAdapterStub
+
 config :sentientwave_automata_temporal, bootstrap_enabled: false
 
 # We don't run a server during test. If one is required,
@@ -25,6 +29,8 @@ config :sentientwave_automata_web, SentientwaveAutomataWeb.Endpoint,
 
 # Print only warnings and errors during test
 config :logger, level: :warning
+
+config :temporal_sdk, clusters: []
 
 # Initialize plugs at runtime for faster test compilation
 config :phoenix, :plug_init_mode, :runtime

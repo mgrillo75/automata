@@ -36,7 +36,9 @@ defmodule SentientwaveAutomata.Adapters.Matrix.Local do
       metadata: %{"source" => "matrix_local", "conversation_scope" => "room"}
     }
 
-    case GovernanceDispatcher.dispatch(message) do
+    governance_event = Map.put(event, "metadata", message.metadata)
+
+    case GovernanceDispatcher.dispatch(governance_event) do
       :pass_through ->
         _ = MentionDispatcher.dispatch(message)
         :ok
